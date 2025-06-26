@@ -5,7 +5,7 @@
 # FirebaseAESLib.Mobile
 
 **FirebaseAESLib.Mobile** is a Xamarin-compatible library that uses AES encryption to securely interact with Firebase **Realtime Database** and **Firestore** using the Firebase REST API.
-
+https://www.nuget.org/packages/FirebaseAESLib.Mobile/
 ---
 
 ## ✅ Features
@@ -103,8 +103,7 @@ To use Firebase Authentication:
 
 - [ ] Token auto-refresh
 - [ ] Firestore query support
-- [ ] Support for structured (non-string) types
-- [ ] Upload as NuGet package
+
 
 ---
 
