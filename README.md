@@ -1,113 +1,185 @@
-﻿
-// =============================
-// FILE: README.md
-// =============================
-# FirebaseAESLib.Mobile
 
-**FirebaseAESLib.Mobile** is a Xamarin-compatible library that uses AES encryption to securely interact with Firebase **Realtime Database** and **Firestore** using the Firebase REST API.
+# FirebaseAESLib.Mobile Xamarin.Forms Sample
 
----
+This is a minimal sample Xamarin.Forms app using the `FirebaseAESLib.Mobile` NuGet package to securely encrypt and decrypt Firebase Realtime Database data with AES encryption.
 
-## ✅ Features
+## 🔧 Requirements
+- Xamarin.Forms (>= 5.0.0)
+- .NET Standard 2.0 compatible platform (Android/iOS)
+- Firebase project with Realtime Database enabled
 
-- 🔐 AES-256 encryption/decryption
-- 🔥 Works with Firestore (via REST)
-- 🔁 Works with Realtime Database (via REST)
-- 📱 Compatible with Xamarin, MAUI, .NET Standard 2.0
-- ⚙️ No Admin SDK dependencies
+## 📦 Install Packages
+```
+# Add this package to your Xamarin shared project
+nuget install FirebaseAESLib.Mobile -Version 1.0.3
 
----
+# Or using .NET CLI:
+dotnet add package FirebaseAESLib.Mobile --version 1.0.3
 
-## 📦 Installation
-
-```bash
-# Create the project (if not already done)
-dotnet new classlib -n FirebaseAESLib.Mobile -f netstandard2.0
-cd FirebaseAESLib.Mobile
-
-# Add required packages
-dotnet add package System.Security.Cryptography.Algorithms
-dotnet add package System.Text.Json
+dotnet add package DotNetEnv
 ```
 
-Or just include the `.cs` files directly into your Xamarin shared project.
+## 📁 Folder Structure
+```
+MyFirebaseAESApp/
+├── Models/
+│   ├── Member.cs
+│   └── RawMember.cs
+├── Views/
+│   └── MainPage.xaml
+├── MainPage.xaml.cs
+├── .env
+├── App.xaml.cs
+└── App.xaml
+```
 
----
+## 🧪 Sample `.env` File
+Place this in the root of your shared project:
+```
+AES_KEY=your-base64-encoded-256bit-key
+AES_IV=your-base64-encoded-128bit-iv
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_ID_TOKEN=your-firebase-user-id-token
+```
 
-## 🔧 Configuration
+## 🧬 How It Works
+- 🔐 Encrypts each field using AES before pushing to Firebase
+- 🔓 Decrypts data after reading it back
+- 🔑 Uses `.env` for storing Firebase project credentials and AES keys
 
-Create a 256-bit AES key and IV, then Base64 encode them:
+## 🧾 Code Overview
 
+### 1. Define your encrypted `Member` model
+`Models/Member.cs`
 ```csharp
-var key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-var iv = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+public class Member
+{
+    public string Name { get; set; }
+    public string Age { get; set; }
+    public string Gender { get; set; }
+    public string Phone { get; set; }
+    public string Residence { get; set; }
+    public string RegistrationDateTime { get; set; }
+    public DateTime LogDetailDateTime { get; set; }
+
+    public int AgeInt => int.TryParse(Age, out var r) ? r : 0;
+}
 ```
 
-Store them securely (e.g., in `SecureStorage` or environment variables).
-
----
-
-## 🔐 Usage Example
-
+### 2. Define a raw display model for encrypted content
+`Models/RawMember.cs`
 ```csharp
-using FirebaseAESLib.Mobile;
-
-var aes = new AesEncryptor("base64-key", "base64-iv");
-
-// Firestore
-var firestore = new FirestoreRestClient("your-project-id", "your-api-key", aes);
-await firestore.SetEncryptedAsync("users", "user1", new Dictionary<string, object>
+public class RawMember
 {
-    { "name", "Alice" },
-    { "email", "alice@example.com" }
-});
+    public string Key { get; set; }
+    public Dictionary<string, object> Fields { get; set; }
 
-var result = await firestore.GetDecryptedAsync("users", "user1");
+    public string Name => Get("Name");
+    public string Age => Get("Age");
 
-// Realtime Database
-var realtime = new RealtimeRestClient("your-project-id", "optional-id-token", aes);
-await realtime.SetEncryptedAsync("users/user2", new Dictionary<string, object>
+    private string Get(string key) =>
+        Fields != null && Fields.TryGetValue(key, out var v) ? v?.ToString() ?? "" : "";
+}
+```
+
+### 3. MainPage UI Layout
+`Views/MainPage.xaml`
+```xml
+<ContentPage ...>
+    <StackLayout Padding="10">
+        <Entry x:Name="NameEntry" Placeholder="Enter Name" />
+        <Entry x:Name="AgeEntry" Placeholder="Enter Age" Keyboard="Numeric" />
+        <Button Text="Save Member" Clicked="OnSaveClicked" />
+        <Button Text="Load Members" Clicked="OnLoadClicked" />
+        <ListView x:Name="MainListView" />
+    </StackLayout>
+</ContentPage>
+```
+
+### 4. Logic: Save & Load Encrypted Data
+`MainPage.xaml.cs`
+```csharp
+public partial class MainPage : ContentPage
 {
-    { "phone", "12345678" }
-});
+    private RealtimeRestClient _firebase;
+    private AesEncryptor _aes;
 
-var realtimeResult = await realtime.GetDecryptedAsync("users/user2");
+    public MainPage()
+    {
+        InitializeComponent();
+        Env.Load(); // 🔄 Load .env variables
+
+        var key = Environment.GetEnvironmentVariable("AES_KEY");
+        var iv = Environment.GetEnvironmentVariable("AES_IV");
+        var pid = Environment.GetEnvironmentVariable("FIREBASE_PROJECT_ID");
+        var token = Environment.GetEnvironmentVariable("FIREBASE_ID_TOKEN");
+
+        _aes = new AesEncryptor(key, iv);
+        _firebase = new RealtimeRestClient(pid, token, _aes);
+    }
+
+    // 🔐 Encrypt and push data
+    private async void OnSaveClicked(object sender, EventArgs e)
+    {
+        var member = new Dictionary<string, object>
+        {
+            { "Name", NameEntry.Text },
+            { "Age", AgeEntry.Text },
+            { "Gender", "MALE" },
+            { "Phone", "+123456789" },
+            { "Residence", "NAIROBI" },
+            { "RegistrationDateTime", DateTime.Now.ToString("dd MMM yyyy") },
+            { "LogDetailDateTime", DateTime.UtcNow.ToString("o") }
+        };
+
+        await _firebase.PushEncryptedAsync("DemoApp/Members", member);
+        await DisplayAlert("Saved", "Member saved to Firebase.", "OK");
+    }
+
+    // 🔓 Read and decrypt data
+    private async void OnLoadClicked(object sender, EventArgs e)
+    {
+        var url = _firebase.BuildUrl("DemoApp/Members");
+        var json = await new HttpClient().GetStringAsync(url);
+
+        var raw = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, object>>>(json);
+        var members = new List<Member>();
+
+        foreach (var item in raw)
+        {
+            var decrypted = _aes.DecryptDictionary(item.Value);
+            var memJson = JsonSerializer.Serialize(decrypted);
+            var member = JsonSerializer.Deserialize<Member>(memJson);
+            members.Add(member);
+        }
+
+        MainListView.ItemsSource = members;
+    }
+}
+```
+
+### 5. App Startup
+`App.xaml.cs`
+```csharp
+public partial class App : Application
+{
+    public App()
+    {
+        InitializeComponent();
+        MainPage = new NavigationPage(new MainPage());
+    }
+
+    protected override void OnStart() => DotNetEnv.Env.Load();
+}
 ```
 
 ---
 
-## 🔐 Firebase Setup Required
+## ✅ Result
+- AES encrypted member data is stored securely in Firebase.
+- On retrieval, data is decrypted and shown in your mobile app.
 
-| Field               | Source                                        |
-|--------------------|-----------------------------------------------|
-| Project ID         | Firebase Console > Project Settings           |
-| Web API Key        | Firebase Console > Project Settings > General |
-| ID Token (optional)| Firebase Auth token for signed-in user        |
-
-To use Firebase Authentication:
-- Sign in using REST API or Firebase SDK
-- Get the `idToken` and pass it to `RealtimeRestClient`
-
----
-
-## 📁 Files
-
-- `AesEncryptor.cs`: AES logic
-- `FirestoreRestClient.cs`: Handles Firestore REST
-- `RealtimeRestClient.cs`: Handles Realtime DB REST
-- `HttpClientExtensions.cs`: Adds `PatchAsync()`
-
----
-
-## 🧪 Roadmap / Coming Soon
-
-- [ ] Token auto-refresh
-- [ ] Firestore query support
-- [ ] Support for structured (non-string) types
-- [ ] Upload as NuGet package
-
----
-
-## ✅ License
+## 📚 Learn More
+🔗 GitHub: [FirebaseAESLib](https://github.com/KevinNyagi/FirebaseAESLib.Mobile))
 
 MIT License
