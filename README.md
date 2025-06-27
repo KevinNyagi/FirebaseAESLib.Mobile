@@ -180,6 +180,6 @@ public partial class App : Application
 - On retrieval, data is decrypted and shown in your mobile app.
 
 ## 📚 Learn More
-🔗 GitHub: [FirebaseAESLib](https://github.com/KevinNyagi/FirebaseAESLib.Mobile))
+🔗 GitHub: [FirebaseAESLibMobile](https://github.com/KevinNyagi/FirebaseAESLib.Mobile))
 
 MIT License
