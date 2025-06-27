@@ -24,15 +24,27 @@ namespace FirebaseAESLib.Mobile
             _aes = aes;
         }
 
-        public async Task SetEncryptedAsync(string path, object data)
+        //public async Task SetEncryptedAsync(string path, object data)
+        //{
+        //    var encrypted = _aes.EncryptObject(data);
+        //    var json = JsonSerializer.Serialize(encrypted);
+        //    var url = BuildUrl(path);
+        //    var response = await _httpClient.PutAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
+        //    response.EnsureSuccessStatusCode();
+        //}
+        public async Task<string?> PushEncryptedAsync(string path, object data)
         {
             var encrypted = _aes.EncryptObject(data);
             var json = JsonSerializer.Serialize(encrypted);
             var url = BuildUrl(path);
-            var response = await _httpClient.PutAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
-            response.EnsureSuccessStatusCode();
-        }
 
+            var response = await _httpClient.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadAsStringAsync();
+            var doc = JsonSerializer.Deserialize<Dictionary<string, string>>(result);
+            return doc != null && doc.TryGetValue("name", out var key) ? key : null;
+        }
         public async Task<object?> GetDecryptedAsync(string path)
         {
             var url = BuildUrl(path);
@@ -44,7 +56,7 @@ namespace FirebaseAESLib.Mobile
             return _aes.DecryptObject(dict);
         }
 
-        private string BuildUrl(string path)
+        public string BuildUrl(string path)
         {
             var url = _baseUrl + path.Trim('/') + ".json";
             if (!string.IsNullOrEmpty(_idToken))

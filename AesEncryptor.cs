@@ -19,7 +19,8 @@ namespace FirebaseAESLib.Mobile
             _iv = Convert.FromBase64String(base64IV);
         }
 
-        public string Encrypt(string plainText)
+        // Encrypt a string to Base64
+        public string EncryptString(string plainText)
         {
             using var aes = Aes.Create();
             aes.Key = _key;
@@ -32,7 +33,8 @@ namespace FirebaseAESLib.Mobile
             return Convert.ToBase64String(output);
         }
 
-        public string Decrypt(string cipherText)
+        // Decrypt a Base64 string back to plaintext
+        public string DecryptString(string cipherText)
         {
             using var aes = Aes.Create();
             aes.Key = _key;
@@ -45,30 +47,33 @@ namespace FirebaseAESLib.Mobile
             return Encoding.UTF8.GetString(output);
         }
 
-        public object EncryptObject(object obj)
+        // Generic encrypt object
+        public object? EncryptObject(object? obj)
         {
             if (obj == null) return null;
             return obj switch
             {
-                string str => Encrypt(str),
+                string str => EncryptString(str),
                 Dictionary<string, object> dict => EncryptDictionary(dict),
                 IEnumerable<object> list => EncryptList(list),
-                _ => Encrypt(obj.ToString())
+                _ => EncryptString(obj.ToString() ?? "")
             };
         }
 
-        public object DecryptObject(object obj)
+        // Generic decrypt object
+        public object? DecryptObject(object? obj)
         {
             if (obj == null) return null;
             return obj switch
             {
-                string str => Decrypt(str),
+                string str => TrySafeDecryptString(str),
                 Dictionary<string, object> dict => DecryptDictionary(dict),
                 IEnumerable<object> list => DecryptList(list),
-                _ => Decrypt(obj.ToString())
+                _ => TrySafeDecryptString(obj.ToString() ?? "")
             };
         }
 
+        // Encrypt a dictionary recursively
         public Dictionary<string, object> EncryptDictionary(Dictionary<string, object> input)
         {
             var result = new Dictionary<string, object>();
@@ -77,6 +82,7 @@ namespace FirebaseAESLib.Mobile
             return result;
         }
 
+        // Decrypt a dictionary recursively
         public Dictionary<string, object> DecryptDictionary(Dictionary<string, object> input)
         {
             var result = new Dictionary<string, object>();
@@ -85,6 +91,7 @@ namespace FirebaseAESLib.Mobile
             return result;
         }
 
+        // Encrypt a list of objects
         private List<object> EncryptList(IEnumerable<object> list)
         {
             var result = new List<object>();
@@ -93,6 +100,7 @@ namespace FirebaseAESLib.Mobile
             return result;
         }
 
+        // Decrypt a list of objects
         private List<object> DecryptList(IEnumerable<object> list)
         {
             var result = new List<object>();
@@ -100,6 +108,22 @@ namespace FirebaseAESLib.Mobile
                 result.Add(DecryptObject(item));
             return result;
         }
+
+        // Try-decrypt a string, fallback to original if not base64
+        private string TrySafeDecryptString(string value)
+        {
+            try
+            {
+                return DecryptString(value);
+            }
+            catch (FormatException)
+            {
+                return value; // not base64 or not encrypted
+            }
+            catch (CryptographicException)
+            {
+                return value; // decryption failed, fallback
+            }
+        }
     }
 }
-
